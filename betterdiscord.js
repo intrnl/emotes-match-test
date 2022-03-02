@@ -26,51 +26,60 @@ function escape (s) {
 	return s.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
 }
 
-export function search (string) {
-	const result = [];
-	const words = string.split(/([^\s]+)([\s]|$)/g);
+export function search (nodes) {
+	for (let n = 0; n < nodes.length; n++) {
+		const node = nodes[n]; 
 
-	for (let c = 0, clen = getCategories().length; c < clen; c++) {
-		for (let w = 0, wlen = words.length; w < wlen; w++) {
-			const emote = words[w];
-			const split = emote.split(':');
+		if (typeof node !== 'string') {
+			continue;
+		}
 
-			const name = split[0];
-			let modifier = split[1] ? split[1] : '';
-			let override = modifier.slice(0);
+		const words = node.split(/([^\s]+)([\s]|$)/g);
+	
+		for (let c = 0, clen = getCategories().length; c < clen; c++) {
+			for (let w = 0, wlen = words.length; w < wlen; w++) {
+				const emote = words[w];
+				const split = emote.split(':');
+	
+				const name = split[0];
+				let modifier = split[1] ? split[1] : '';
+				let override = modifier.slice(0);
+	
+				if (name.length < 4 /* || blocklist.includes(name) */) continue;
+				if (!modifiers.includes(modifier)) modifier = '';
+				if (!overrides.includes(override)) override = '';
+				else modifier = override;
+	
+				let current = getCategories()[c];
+				if (override === 'twitch') {
+					if (Emotes.TwitchGlobal[name]) current = 'TwitchGlobal';
+					else if (Emotes.TwitchSubscriber[name]) current = 'TwitchSubscriber';
+				}
+				else if (override === 'subscriber') {
+					if (Emotes.TwitchSubscriber[name]) current = 'TwitchSubscriber';
+				}
+				else if (override === 'bttv') {
+					if (Emotes.BTTV[name]) current = 'BTTV';
+				}
+				else if (override === 'ffz') {
+					if (Emotes.FrankerFaceZ[name]) current = 'FrankerFaceZ';
+				}
+	
+				if (!Emotes[current][name]) continue;
+	
+				// wtf?
+				const res = nodes[n].match(new RegExp(`([\\s]|^)${escape(modifier ? name + ":" + modifier : name)}([\\s]|$)`));
+				if (!res) continue;
+	
+				const pre = nodes[n].substring(0, res.index + res[1].length);
+				const post = nodes[n].substring(res.index + res[0].length - res[2].length);
 
-			if (name.length < 4 /* || blocklist.includes(name) */) continue;
-			if (!modifiers.includes(modifier)) modifier = '';
-			if (!overrides.includes(override)) override = '';
-			else modifier = override;
+				nodes[n] = pre;
 
-			let current = getCategories()[c];
-			if (override === 'twitch') {
-				if (Emotes.TwitchGlobal[name]) current = 'TwitchGlobal';
-				else if (Emotes.TwitchSubscriber[name]) current = 'TwitchSubscriber';
+				nodes.splice(n + 1, 0, post);
+				nodes.splice(n + 1, 0, { type: 'emote', category: current, name, modifier });
 			}
-			else if (override === 'subscriber') {
-				if (Emotes.TwitchSubscriber[name]) current = 'TwitchSubscriber';
-			}
-			else if (override === 'bttv') {
-				if (Emotes.BTTV[name]) current = 'BTTV';
-			}
-			else if (override === 'ffz') {
-				if (Emotes.FrankerFaceZ[name]) current = 'FrankerFaceZ';
-			}
-
-			if (!Emotes[current][name]) continue;
-
-			// wtf?
-			const res = string.match(new RegExp(`([\\s]|^)${escape(modifier ? name + ":" + modifier : name)}([\\s]|$)`));
-			if (!res) continue;
-
-			const start = res.index;
-
-			result.push([start, current, name, modifier]);
 		}
 	}
-
-	return result;
 }
 
